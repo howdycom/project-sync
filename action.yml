@@ -1,0 +1,72 @@
+name: 'GitHub Project Sync'
+description: >
+  Reproduces a Jira-style PR/push status automation on a native GitHub Project
+  (v2) board. On pull_request / push events it moves the Status field of every
+  board issue linked to the PR (via "Closes #N"). Board owner/number and column
+  names are inputs, so the same action drives any repo's board. See README.md.
+inputs:
+  token:
+    description: >
+      Token with read/write access to organization Projects (fine-grained PAT or
+      GitHub App installation token). The default GITHUB_TOKEN CANNOT write
+      Projects v2, so it is not sufficient.
+    required: true
+  project_owner:
+    description: 'Organization login that owns the project board.'
+    required: true
+  project_number:
+    description: 'Project (v2) number, as shown in the project URL.'
+    required: true
+  status_field:
+    description: 'Name of the single-select field to drive.'
+    required: false
+    default: 'Status'
+  base_branch:
+    description: 'PR base branch that gates the in-progress/review/post-merge transitions.'
+    required: false
+    default: 'staging'
+  production_branch:
+    description: 'Branch whose push marks issues Done.'
+    required: false
+    default: 'main'
+  status_in_progress:
+    description: 'Column for draft / converted-to-draft PRs.'
+    required: false
+    default: 'In progress'
+  status_review:
+    description: 'Column for ready-for-review PRs.'
+    required: false
+    default: 'Code Review'
+  status_post_merge:
+    description: 'Column for PRs merged into base_branch (the QA gate).'
+    required: false
+    default: 'QA'
+  status_done:
+    description: 'Column for pushes to production_branch.'
+    required: false
+    default: 'Done'
+runs:
+  using: composite
+  steps:
+    - name: Set up Python 3.12
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+
+    - name: Run GitHub Project sync
+      shell: bash
+      env:
+        PROJECTS_TOKEN: ${{ inputs.token }}
+        PROJECT_OWNER: ${{ inputs.project_owner }}
+        PROJECT_NUMBER: ${{ inputs.project_number }}
+        PROJECT_STATUS_FIELD: ${{ inputs.status_field }}
+        PROJECT_PR_BASE_BRANCH: ${{ inputs.base_branch }}
+        PROJECT_PRODUCTION_BRANCH: ${{ inputs.production_branch }}
+        PROJECT_STATUS_IN_PROGRESS: ${{ inputs.status_in_progress }}
+        PROJECT_STATUS_REVIEW: ${{ inputs.status_review }}
+        PROJECT_STATUS_POST_MERGE: ${{ inputs.status_post_merge }}
+        PROJECT_STATUS_DONE: ${{ inputs.status_done }}
+      # The trusted script is bundled with the pinned action, so under
+      # pull_request_target it never runs code from the PR head. The push job's
+      # caller must checkout with fetch-depth: 0 so `git log before..after` works.
+      run: python3 "$GITHUB_ACTION_PATH/project_sync.py"
