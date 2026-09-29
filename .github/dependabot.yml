@@ -1,0 +1,8 @@
+version: 2
+updates:
+  # project_sync.py is stdlib-only (no dependency manifest), so there is no
+  # pip ecosystem to monitor — track the workflow's action pins instead.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
