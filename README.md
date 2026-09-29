@@ -62,7 +62,7 @@ jobs:
     steps:
       # No repo checkout: the trusted script ships with the pinned action, so
       # under pull_request_target it never runs code from the PR head.
-      - uses: howdycom/workflows/actions/project-sync@v1
+      - uses: howdycom/merge-queue/actions/project-sync@v1
         with:
           token: ${{ secrets.PROJECTS_SYNC_TOKEN }}
           project_owner: howdycom
@@ -77,7 +77,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0   # git log before..after needs history
-      - uses: howdycom/workflows/actions/project-sync@v1
+      - uses: howdycom/merge-queue/actions/project-sync@v1
         with:
           token: ${{ secrets.PROJECTS_SYNC_TOKEN }}
           project_owner: howdycom
