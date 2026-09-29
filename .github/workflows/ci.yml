@@ -1,15 +1,21 @@
-name: tests
+name: ci
 
 on:
   pull_request:
   push:
     branches: [main]
 
+permissions:
+  pull-requests: write
+  contents: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
     steps:
       - uses: actions/checkout@v4
 
@@ -24,3 +30,20 @@ jobs:
         run: |
           coverage run --source=project_sync -m pytest tests -q
           coverage report -m --fail-under=100
+
+  dependabot:
+    name: Dependabot
+    needs: [test]
+    runs-on: ubuntu-latest
+    if: ${{ github.actor == 'dependabot[bot]' && github.event_name == 'pull_request' }}
+    steps:
+      - name: Dependabot metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@v2.2.0
+        with:
+          github-token: '${{ secrets.GITHUB_TOKEN }}'
+      - name: Enable auto-merge for Dependabot PRs
+        run: gh pr merge --auto --merge "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
