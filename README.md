@@ -1,12 +1,11 @@
-# project-sync
+# Project Sync
 
-Reproduces a Jira-style **PR/push → board status** automation on a native
-**GitHub Project (v2)** board. It is the stack-agnostic, reusable version of the
-per-repo `jira-sync` scripts (`ai-matching-platform/scripts/jira_sync.py`).
+Composite GitHub Action that reproduces a Jira-style **PR/push → board
+status** automation on a native **GitHub Project (v2)** board.
 
-The board tracks GitHub **issues**; PRs link them with `Closes #N` / `Fixes #N`.
-On each event the action reads the PR's linked closing issues and moves *their*
-Status field:
+The board tracks GitHub **issues**; PRs link them with `Closes #N` /
+`Fixes #N`. On each event the action reads the PR's linked closing issues
+and moves *their* Status field:
 
 | Trigger (base = `base_branch`) | Status column |
 |---|---|
@@ -15,22 +14,25 @@ Status field:
 | PR merged into `base_branch` | `status_post_merge` |
 | push to `production_branch` | `status_done` |
 
-Same skip rules as `jira-sync`: dependabot, `Revert…`, `Bump …`, `[TECH]`.
-PRs with no linked board issue are a no-op.
+Built-in skip rules: dependabot PRs, `Revert…`, `Bump …`, and `[TECH]`
+titles are ignored. PRs with no linked board issue are a no-op.
+
+Licensed under the [MIT License](LICENSE).
 
 ### No-regress guard
 
-Unlike a locked-down Jira workflow (which only offers transitions valid from the
-current status), the Projects API lets any status jump to any other. To stop a
-follow-up PR from dragging an already-advanced issue backwards, a target that
-would move an item **already at or beyond `status_post_merge` (the QA gate)**
-back to an earlier column is skipped. The `in_progress ↔ review` oscillation
-(e.g. converting a PR back to draft) and all forward progress are still applied.
+Unlike a locked-down Jira workflow (which only offers transitions valid from
+the current status), the Projects API lets any status jump to any other. To
+stop a follow-up PR from dragging an already-advanced issue backwards, a
+target that would move an item **already at or beyond `status_post_merge`
+(the QA gate)** back to an earlier column is skipped. The
+`in_progress ↔ review` oscillation (e.g. converting a PR back to draft) and
+all forward progress are still applied.
 
 ## Requirements
 
-A **`token`** — a fine-grained PAT or GitHub App installation token — that has
-**both**:
+A **`token`** — a fine-grained PAT or GitHub App installation token — that
+has **both**:
 
 - repository **Pull requests: read** (and issues read) — the closing-issues
   lookup is a repo-level GraphQL read, required on a private repo; and
@@ -41,8 +43,8 @@ here and the action does not fall back to it.
 
 ## Usage
 
-Add a thin caller workflow in the consuming repo. Two jobs — one for PR events,
-one for the production push:
+Add a thin caller workflow in the consuming repo. Two jobs — one for PR
+events, one for the production push:
 
 ```yaml
 name: GitHub Project Sync
@@ -56,31 +58,31 @@ on:
 jobs:
   sync-pr:
     if: github.event_name == 'pull_request_target'
-    runs-on: ubuntu-slim
+    runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
       # No repo checkout: the trusted script ships with the pinned action, so
       # under pull_request_target it never runs code from the PR head.
-      - uses: howdycom/merge-queue/actions/project-sync@v1
+      - uses: howdycom/project-sync@v1
         with:
           token: ${{ secrets.PROJECTS_SYNC_TOKEN }}
-          project_owner: howdycom
+          project_owner: my-org
           project_number: "3"
 
   sync-push:
     if: github.event_name == 'push'
-    runs-on: ubuntu-slim
+    runs-on: ubuntu-latest
     permissions:
       contents: read
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0   # git log before..after needs history
-      - uses: howdycom/merge-queue/actions/project-sync@v1
+      - uses: howdycom/project-sync@v1
         with:
           token: ${{ secrets.PROJECTS_SYNC_TOKEN }}
-          project_owner: howdycom
+          project_owner: my-org
           project_number: "3"
 ```
 
@@ -102,3 +104,25 @@ match a different board's columns and branch names.
 | `status_review` | no | `Code Review` | Ready-for-review column. |
 | `status_post_merge` | no | `QA` | Merged-to-base column (QA gate). |
 | `status_done` | no | `Done` | Pushed-to-production column. |
+
+## Developing
+
+```bash
+python3 -m pip install pytest coverage
+coverage run --source=project_sync -m pytest tests -q
+coverage report -m --fail-under=100
+```
+
+The suite enforces 100% coverage — add tests with every behavior change.
+
+## Versioning
+
+Changes are tagged with semver (`v1`, `v1.1`, …). The major tag (`v1`) moves
+to the latest compatible release; breaking changes bump the major version.
+Don't reference `main` from a consumer workflow.
+
+## Contributing
+
+Changes go through a PR, not direct pushes to `main`. This action moves
+issues on shared project boards in consuming orgs, so review matters here
+more than usual.
